@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: e578cbb6bff9803a673fd0347cdba72f422f1875
+          ref: 6242113ad6e265987dde25df9b42666aabff6081
           persist-credentials: false
       - uses: actions/setup-go@v6
         with:
@@ -45,5 +45,6 @@ jobs:
           PY
           go test -c -o /tmp/studiohaze-scc.test ./processor
           sha256sum /tmp/studiohaze-scc.test
+          cd processor
           /tmp/studiohaze-scc.test -test.list '^TestCountStatsTopazLispex$' | grep -x TestCountStatsTopazLispex
           /tmp/studiohaze-scc.test -test.run '^TestCountStatsTopazLispex$' -test.v
