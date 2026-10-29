@@ -1,0 +1,49 @@
+name: STUDIO HAZE targeted language tests
+on:
+  push:
+    branches: [studiohaze-targeted-ci]
+permissions:
+  contents: read
+jobs:
+  language-fixtures:
+    if: github.repository == 'clavef/scc'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GOMAXPROCS: '1'
+      GOFLAGS: '-p=1 -mod=vendor'
+      GOTOOLCHAIN: local
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: e578cbb6bff9803a673fd0347cdba72f422f1875
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.4'
+          cache: false
+      - name: Generate definitions and run the two language regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          go version
+          gofmt -w processor/workers_studiohaze_test.go
+          go generate
+          python3 - <<'PY'
+          import subprocess, base64
+          allowed = ['processor/constants.go', 'LANGUAGES.md', 'processor/workers_studiohaze_test.go']
+          changed = subprocess.check_output(['git', 'diff', '--name-only'], text=True).splitlines()
+          assert set(changed) <= set(allowed), changed
+          patch = subprocess.check_output(['git', 'diff', '--binary', '--', *allowed])
+          assert len(patch) < 200000, len(patch)
+          print('GENERATED_DIFF_BASE64=' + base64.b64encode(patch).decode(), flush=True)
+          subprocess.run(['git', 'add', '--', *allowed], check=True)
+          tree = subprocess.check_output(['git', 'write-tree'], text=True).strip()
+          print('TESTED_SOURCE_TREE=' + tree, flush=True)
+          PY
+          go test -c -o /tmp/studiohaze-scc.test ./processor
+          sha256sum /tmp/studiohaze-scc.test
+          /tmp/studiohaze-scc.test -test.list '^TestCountStatsTopazLispex$' | grep -x TestCountStatsTopazLispex
+          /tmp/studiohaze-scc.test -test.run '^TestCountStatsTopazLispex$' -test.v
